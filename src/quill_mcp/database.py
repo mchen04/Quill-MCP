@@ -110,7 +110,9 @@ class QuillDatabase:
         """
         try:
             with self._get_connection() as conn:
-                conn.execute("SELECT fts5_version()").fetchone()
+                # Try to create a simple FTS5 table to test support
+                conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts5_test USING fts5(content)")
+                conn.execute("DROP TABLE fts5_test")
             logger.debug("FTS5 support confirmed")
         except sqlite3.OperationalError as e:
             raise DatabaseError(
@@ -216,119 +218,119 @@ class QuillDatabase:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS projects (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT UNIQUE NOT NULL,
-                    description TEXT DEFAULT '',
-                    genre TEXT DEFAULT '',
-                    target_words INTEGER DEFAULT 0,
-                    current_words INTEGER DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # Characters table
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS characters (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    project_id INTEGER NOT NULL,
-                    name TEXT NOT NULL,
-                    description TEXT DEFAULT '',
-                    personality TEXT DEFAULT '',
-                    backstory TEXT DEFAULT '',
-                    appearance TEXT DEFAULT '',
-                    relationships TEXT DEFAULT '{}',  -- JSON
-                    importance TEXT DEFAULT 'minor',  -- main, supporting, minor
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-                )
-            """)
-            
-            # Plots table
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS plots (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    project_id INTEGER NOT NULL,
-                    title TEXT NOT NULL,
-                    description TEXT DEFAULT '',
-                    plot_type TEXT DEFAULT 'main',  -- main, subplot, arc
-                    status TEXT DEFAULT 'planned',  -- planned, active, completed
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-                )
-            """)
-            
-            # World building table
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS world_building (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    project_id INTEGER NOT NULL,
-                    name TEXT NOT NULL,
-                    category TEXT DEFAULT 'location',  -- location, culture, history, rules, technology
-                    description TEXT DEFAULT '',
-                    details TEXT DEFAULT '',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-                )
-            """)
-            
-            # Scenes table
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS scenes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    project_id INTEGER NOT NULL,
-                    chapter_number INTEGER DEFAULT 1,
-                    scene_number INTEGER DEFAULT 1,
-                    title TEXT DEFAULT '',
-                    summary TEXT DEFAULT '',
-                    content TEXT DEFAULT '',
-                    word_count INTEGER DEFAULT 0,
-                    status TEXT DEFAULT 'planned',  -- planned, draft, complete
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-                )
-            """)
-            
-            # Writing sessions table (for analytics)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS writing_sessions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    project_id INTEGER NOT NULL,
-                    words_written INTEGER DEFAULT 0,
-                    duration_minutes INTEGER DEFAULT 0,
-                    session_date DATE DEFAULT (date('now')),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-                )
-            """)
-            
-            # Create FTS5 virtual table for full-text search
-            conn.execute("""
-                CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(
-                    content_type,
-                    project_id UNINDEXED,
-                    entity_id UNINDEXED,
-                    title,
-                    content,
-                    metadata
-                )
-            """)
-            
-            # Create indexes for performance
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_characters_project ON characters(project_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_plots_project ON plots(project_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_world_building_project ON world_building(project_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_scenes_project ON scenes(project_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_project_date ON writing_sessions(project_id, session_date)")
-            
-            # Create triggers to update FTS5 table when content changes
-            self._create_fts_triggers(conn)
-            
-            conn.commit()
-            logger.info("Database schema initialized successfully")
+                        name TEXT UNIQUE NOT NULL,
+                        description TEXT DEFAULT '',
+                        genre TEXT DEFAULT '',
+                        target_words INTEGER DEFAULT 0,
+                        current_words INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Characters table
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS characters (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        project_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        description TEXT DEFAULT '',
+                        personality TEXT DEFAULT '',
+                        backstory TEXT DEFAULT '',
+                        appearance TEXT DEFAULT '',
+                        relationships TEXT DEFAULT '{}',
+                        importance TEXT DEFAULT 'minor',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    )
+                """)
+                
+                # Plots table
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS plots (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        project_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        description TEXT DEFAULT '',
+                        plot_type TEXT DEFAULT 'main',
+                        status TEXT DEFAULT 'planned',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    )
+                """)
+                
+                # World building table
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS world_building (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        project_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        category TEXT DEFAULT 'location',
+                        description TEXT DEFAULT '',
+                        details TEXT DEFAULT '',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    )
+                """)
+                
+                # Scenes table
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS scenes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        project_id INTEGER NOT NULL,
+                        chapter_number INTEGER DEFAULT 1,
+                        scene_number INTEGER DEFAULT 1,
+                        title TEXT DEFAULT '',
+                        summary TEXT DEFAULT '',
+                        content TEXT DEFAULT '',
+                        word_count INTEGER DEFAULT 0,
+                        status TEXT DEFAULT 'planned',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    )
+                """)
+                
+                # Writing sessions table (for analytics)
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS writing_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        project_id INTEGER NOT NULL,
+                        words_written INTEGER DEFAULT 0,
+                        duration_minutes INTEGER DEFAULT 0,
+                        session_date DATE DEFAULT (date('now')),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    )
+                """)
+                
+                # Create FTS5 virtual table for full-text search
+                conn.execute("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(
+                        content_type,
+                        project_id UNINDEXED,
+                        entity_id UNINDEXED,
+                        title,
+                        content,
+                        metadata
+                    )
+                """)
+                
+                # Create indexes for performance
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_characters_project ON characters(project_id)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_plots_project ON plots(project_id)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_world_building_project ON world_building(project_id)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_scenes_project ON scenes(project_id)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_project_date ON writing_sessions(project_id, session_date)")
+                
+                # Create triggers to update FTS5 table when content changes
+                self._create_fts_triggers(conn)
+                
+                conn.commit()
+                logger.info("Database schema initialized successfully")
         except Exception as e:
             raise DatabaseError(f"Failed to initialize database schema: {e}") from e
     
@@ -677,40 +679,55 @@ class QuillDatabase:
     # Search methods
     def search_memory(self, query: str, project_id: Optional[int] = None, 
                      content_types: Optional[List[str]] = None, limit: int = 20) -> List[Dict[str, Any]]:
-        """Search through all memory using FTS5."""
+        """Search through all memory using FTS5.
         
-        # Build FTS5 query
-        fts_query = query
-        
-        # Add content type filter if specified
-        where_conditions = []
-        params = [fts_query]
-        
-        if project_id:
-            where_conditions.append("project_id = ?")
-            params.append(project_id)
-        
-        if content_types:
-            placeholders = ", ".join("?" * len(content_types))
-            where_conditions.append(f"content_type IN ({placeholders})")
-            params.extend(content_types)
-        
-        where_clause = ""
-        if where_conditions:
-            where_clause = f"WHERE {' AND '.join(where_conditions)}"
-        
-        with self._get_connection() as conn:
-            rows = conn.execute(f"""
-                SELECT content_type, project_id, entity_id, title, 
-                       snippet(memory_search, 4, '<mark>', '</mark>', '...', 32) as snippet,
-                       rank
-                FROM memory_search
-                {where_clause}
-                ORDER BY rank
-                LIMIT ?
-            """, params + [limit]).fetchall()
+        Args:
+            query: Search query text
+            project_id: Optional project ID filter
+            content_types: Optional content type filters
+            limit: Maximum number of results
             
-            return [dict(row) for row in rows]
+        Returns:
+            List of search results with snippets
+            
+        Raises:
+            DatabaseError: If search fails
+        """
+        # Handle empty query
+        if not query or not query.strip():
+            return []
+            
+        try:
+            # Build WHERE conditions for filters
+            where_conditions = ["memory_search MATCH ?"]
+            params = [query.strip()]
+            
+            if project_id:
+                where_conditions.append("project_id = ?")
+                params.append(project_id)
+            
+            if content_types:
+                placeholders = ", ".join("?" * len(content_types))
+                where_conditions.append(f"content_type IN ({placeholders})")
+                params.extend(content_types)
+            
+            where_clause = " AND ".join(where_conditions)
+            
+            with self._get_connection() as conn:
+                rows = conn.execute(f"""
+                    SELECT content_type, project_id, entity_id, title, 
+                           snippet(memory_search, 4, '<mark>', '</mark>', '...', 32) as snippet,
+                           rank
+                    FROM memory_search
+                    WHERE {where_clause}
+                    ORDER BY rank
+                    LIMIT ?
+                """, params + [limit]).fetchall()
+                
+                return [dict(row) for row in rows]
+                
+        except sqlite3.Error as e:
+            raise DatabaseError(f"Search failed: {e}") from e
     
     # Analytics methods
     def record_writing_session(self, project_id: int, words_written: int, duration_minutes: int) -> None:
@@ -803,6 +820,6 @@ class QuillDatabase:
                 "word_count": {
                     "current": scene_stats[1] or 0,
                     "target": project["target_words"],
-                    "progress": (scene_stats[1] / project["target_words"] * 100) if project["target_words"] > 0 else 0
+                    "progress": ((scene_stats[1] or 0) / project["target_words"] * 100) if project["target_words"] > 0 and scene_stats[1] else 0
                 }
             }
