@@ -174,7 +174,7 @@ Thumbs.db
 .directory
 
 # Claude Code and development artifacts
-.claude
+.claude/
 CLAUDE.md
 claude.md
 PRD.md
