@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "quill-mcp": {
+      "command": "python",
+      "args": ["-m", "quill_mcp.server"],
+      "env": {},
+      "description": "Quill MCP - Local memory server for authors"
+    }
+  }
+}
